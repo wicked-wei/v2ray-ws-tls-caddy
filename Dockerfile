@@ -1,27 +1,26 @@
-#
 # Builder
-#
-FROM abiosoft/caddy:builder as builder
+FROM golang:1.13-alpine as builder
 
-ARG version="0.11.1"
+RUN apk add --no-cache git gcc musl-dev
+
+COPY builder.sh /usr/bin/builder.sh
+
+CMD ["/bin/sh", "/usr/bin/builder.sh"]
+
+ARG version="1.0.3"
 ARG plugins="git,cors,realip,expires,cache"
 
 
 RUN go get -v github.com/abiosoft/parent
 RUN VERSION=${version} PLUGINS=${plugins} ENABLE_TELEMETRY=false /bin/sh /usr/bin/builder.sh
 
-#
 # Final stage
-#
 FROM alpine:3.8
-# process wrapper
-LABEL maintainer "sebs sebsclub@outlook.com"
 
 # V2RAY
 ARG TZ="Asia/Shanghai"
-
 ENV TZ ${TZ}
-ENV V2RAY_VERSION v4.19.1 
+ENV V2RAY_VERSION v4.22.1
 ENV V2RAY_LOG_DIR /var/log/v2ray
 ENV V2RAY_CONFIG_DIR /etc/v2ray/
 ENV V2RAY_DOWNLOAD_URL https://github.com/v2ray/v2ray-core/releases/download/${V2RAY_VERSION}/v2ray-linux-64.zip
@@ -31,7 +30,7 @@ RUN apk upgrade --update \
         bash \
         tzdata \
         curl \
-    && mkdir -p \ 
+    && mkdir -p \
         ${V2RAY_LOG_DIR} \
         ${V2RAY_CONFIG_DIR} \
         /tmp/v2ray \
@@ -48,17 +47,17 @@ RUN apk upgrade --update \
     && echo ${TZ} > /etc/timezone \
     && rm -rf /tmp/v2ray /var/cache/apk/*
 
-# ADD entrypoint.sh /entrypoint.sh
 WORKDIR /srv
+
 # node
-# install node 
+# install node
 RUN apk add --no-cache util-linux
 RUN apk add --update nodejs nodejs-npm
 COPY package.json /srv/package.json
 RUN  npm install
-COPY  v2ray.js /srv/v2ray.js
+COPY showconfig.js /srv/showconfig.js
 
-ARG version="0.11.1"
+ARG version="1.0.3"
 LABEL caddy_version="$version"
 
 # Let's Encrypt Agreement
@@ -73,19 +72,21 @@ RUN apk add --no-cache openssh-client git
 COPY --from=builder /install/caddy /usr/bin/caddy
 
 # validate install
-RUN /usr/bin/caddy -version
-RUN /usr/bin/caddy -plugins
+# RUN /usr/bin/caddy -version
+# RUN /usr/bin/caddy -plugins
 
+VOLUME /root/.caddy
+VOLUME /root/.v2ray
 
-VOLUME /root/.caddy /srv
-# WORKDIR /srv
+COPY err.html /srv/err.html
 
-COPY Caddyfile /etc/Caddyfile
-COPY index.html /srv/index.html
-# COPY package.json /etc/package.json
 # install process wrapper
 COPY --from=builder /go/bin/parent /bin/parent
-ADD caddy.sh /caddy.sh
+COPY clientconfig.json /srv/clientconfig.json
+COPY entry.sh /entry.sh
 EXPOSE 443 80
-ENTRYPOINT ["/caddy.sh"]
-# CMD ["--conf", "/etc/Caddyfile", "--log", "stdout", "--agree=$ACME_AGREE"]
+
+RUN chmod +x /entry.sh
+
+# Startup script
+ENTRYPOINT ["/entry.sh"]

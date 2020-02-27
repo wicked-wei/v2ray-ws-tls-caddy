@@ -2,7 +2,7 @@
   "name": "oneshell",
   "version": "1.0.0",
   "description": "",
-  "main": "v2ray.js",
+  "main": "showconfig.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

@@ -1,8 +1,0 @@
-fanrui.xyz {
-  log ./caddy.log
-
-  proxy /tomcat v2ray:8002 {
-    websocket
-    header_upstream -Origin
-  }
-}
